@@ -25,21 +25,28 @@ except Exception as e:
       ["-c", pythonScript, videoId, lang],
       { timeout: 15000 },
       (error, stdout, stderr) => {
+        if (stdout.trim()) {
+          try {
+            const parsed = JSON.parse(stdout.trim());
+            if (parsed.error) {
+              reject(new Error(parsed.error));
+              return;
+            }
+            if (!error) {
+              resolve(parsed as TranscriptEntry[]);
+              return;
+            }
+          } catch {
+            // stdout is not valid JSON, fall through to error handling
+          }
+        }
+
         if (error) {
           reject(new Error(`자막 추출 실패: ${stderr || error.message}`));
           return;
         }
 
-        try {
-          const parsed = JSON.parse(stdout.trim());
-          if (parsed.error) {
-            reject(new Error(parsed.error));
-            return;
-          }
-          resolve(parsed as TranscriptEntry[]);
-        } catch {
-          reject(new Error("자막 데이터 파싱 실패"));
-        }
+        reject(new Error("자막 데이터 파싱 실패"));
       }
     );
   });

@@ -61,6 +61,8 @@ describe('fetchTranscript', () => {
       },
     )
 
-    await expect(fetchTranscript('testVideoId', 'ja')).rejects.toThrow()
+    await expect(fetchTranscript('testVideoId', 'ja')).rejects.toThrow(
+      'No transcript found',
+    )
   })
 })
