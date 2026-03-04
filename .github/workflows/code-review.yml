@@ -1,0 +1,69 @@
+name: Code Review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed
+        run: |
+          FILES=$(gh pr diff ${{ github.event.pull_request.number }} --name-only)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get diff
+        id: diff
+        run: |
+          DIFF=$(gh pr diff ${{ github.event.pull_request.number }})
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post review comment
+        run: |
+          CHANGED_FILES="${{ steps.changed.outputs.files }}"
+          FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l | tr -d ' ')
+
+          TS_FILES=$(echo "$CHANGED_FILES" | grep -c '\.tsx\?\b' || true)
+          TEST_FILES=$(echo "$CHANGED_FILES" | grep -c '\.test\.\|\.spec\.' || true)
+
+          BODY="## 🔍 Code Review Summary
+
+          ### 변경 파일 ($FILE_COUNT개)
+
+          \`\`\`
+          $CHANGED_FILES
+          \`\`\`
+
+          ### 체크리스트
+
+          - [ ] TypeScript 파일 변경: ${TS_FILES}개
+          - [ ] 테스트 파일 변경: ${TEST_FILES}개
+          - [ ] CI 테스트 통과 확인
+          - [ ] 코드 스타일 일관성 확인
+          - [ ] 보안 이슈 확인 (하드코딩된 시크릿 등)
+
+          > 자동 생성된 리뷰 요약입니다. CI 결과를 확인해주세요."
+
+          gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
