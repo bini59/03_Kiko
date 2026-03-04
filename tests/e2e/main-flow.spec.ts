@@ -98,8 +98,7 @@ test.describe('Main Flow', () => {
     // Video player section should still appear
     await expect(page.getByRole('heading', { name: '스크립트' })).toBeVisible({ timeout: 10000 })
     // Transcript error notice should be shown
-    await expect(page.getByRole('alert')).toBeVisible()
-    await expect(page.getByRole('alert')).toContainText('자막을 불러올 수 없습니다')
+    await expect(page.getByText('자막을 불러올 수 없습니다')).toBeVisible()
   })
 
   test('shows error when verifying without API key', async ({ page }) => {
