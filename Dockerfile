@@ -22,17 +22,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install Python 3 + youtube-transcript-api (runtime dependency for transcript.ts)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3 python3-pip python3-venv && \
-    python3 -m venv /opt/venv && \
-    /opt/venv/bin/pip install youtube-transcript-api && \
-    apt-get purge -y python3-pip python3-venv && \
-    apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
-
-ENV PATH="/opt/venv/bin:$PATH"
-
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
