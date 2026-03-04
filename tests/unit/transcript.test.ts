@@ -1,68 +1,172 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { fetchTranscript } from "@/lib/youtube/transcript";
 
-const { mockExecFile } = vi.hoisted(() => ({
-  mockExecFile: vi.fn(),
-}))
+function mockFetchResponses(
+  ...responses: Array<{ ok: boolean; status?: number; json?: unknown }>
+) {
+  const fetchMock = vi.fn();
+  for (const res of responses) {
+    fetchMock.mockResolvedValueOnce({
+      ok: res.ok,
+      status: res.status ?? (res.ok ? 200 : 500),
+      json: async () => res.json,
+    });
+  }
+  global.fetch = fetchMock;
+  return fetchMock;
+}
 
-vi.mock('child_process', () => ({
-  execFile: mockExecFile,
-}))
-
-import { fetchTranscript } from '@/lib/youtube/transcript'
-
-describe('fetchTranscript', () => {
+describe("fetchTranscript", () => {
   beforeEach(() => {
-    mockExecFile.mockReset()
-  })
+    vi.restoreAllMocks();
+  });
 
-  it('parses transcript entries from python output', async () => {
-    const mockEntries = [
-      { text: 'こんにちは', start: 0.0, duration: 2.5 },
-      { text: '世界', start: 2.5, duration: 3.0 },
-    ]
-
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, callback: Function) => {
-        callback(null, JSON.stringify(mockEntries), '')
+  it("parses transcript entries from Innertube json3 response", async () => {
+    const playerJson = {
+      captions: {
+        playerCaptionsTracklistRenderer: {
+          captionTracks: [
+            { baseUrl: "https://example.com/timedtext", languageCode: "ja" },
+          ],
+        },
       },
-    )
+    };
+    const json3 = {
+      events: [
+        {
+          tStartMs: 0,
+          dDurationMs: 2500,
+          segs: [{ utf8: "こんにちは" }],
+        },
+        {
+          tStartMs: 2500,
+          dDurationMs: 3000,
+          segs: [{ utf8: "世界" }],
+        },
+      ],
+    };
 
-    const result = await fetchTranscript('testVideoId', 'ja')
+    mockFetchResponses(
+      { ok: true, json: playerJson },
+      { ok: true, json: json3 }
+    );
 
-    expect(result).toEqual(mockEntries)
-    expect(mockExecFile).toHaveBeenCalledWith(
-      'python3',
-      expect.arrayContaining(['testVideoId', 'ja']),
-      expect.any(Object),
-      expect.any(Function),
-    )
-  })
+    const result = await fetchTranscript("testVideoId", "ja");
 
-  it('throws error when python script fails', async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, callback: Function) => {
-        callback(new Error('Process failed'), '', '자막 추출 실패')
+    expect(result).toEqual([
+      { text: "こんにちは", start: 0, duration: 2.5 },
+      { text: "世界", start: 2.5, duration: 3 },
+    ]);
+  });
+
+  it("throws error when no caption tracks are found", async () => {
+    const playerJson = {
+      captions: {
+        playerCaptionsTracklistRenderer: {
+          captionTracks: [],
+        },
       },
-    )
+    };
 
-    await expect(fetchTranscript('testVideoId', 'ja')).rejects.toThrow(
-      '자막 추출 실패',
-    )
-  })
+    mockFetchResponses({ ok: true, json: playerJson });
 
-  it('throws error when python returns error json', async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: object, callback: Function) => {
-        callback(
-          { code: 1 },
-          JSON.stringify({ error: 'No transcript found' }),
-          '',
-        )
+    await expect(fetchTranscript("testVideoId", "ja")).rejects.toThrow(
+      "자막 트랙을 찾을 수 없습니다"
+    );
+  });
+
+  it("throws error when Innertube player API fails", async () => {
+    mockFetchResponses({ ok: false, status: 403 });
+
+    await expect(fetchTranscript("testVideoId", "ja")).rejects.toThrow(
+      "Innertube player API 실패: 403"
+    );
+  });
+
+  it("filters out empty segments", async () => {
+    const playerJson = {
+      captions: {
+        playerCaptionsTracklistRenderer: {
+          captionTracks: [
+            { baseUrl: "https://example.com/timedtext", languageCode: "ja" },
+          ],
+        },
       },
-    )
+    };
+    const json3 = {
+      events: [
+        {
+          tStartMs: 0,
+          dDurationMs: 1000,
+          segs: [{ utf8: "テスト" }],
+        },
+        {
+          tStartMs: 1000,
+          dDurationMs: 500,
+          segs: [{ utf8: "  " }],
+        },
+        {
+          tStartMs: 1500,
+          dDurationMs: 0,
+        },
+        {
+          tStartMs: 2000,
+          dDurationMs: 2000,
+          segs: [{ utf8: "有効" }],
+        },
+      ],
+    };
 
-    await expect(fetchTranscript('testVideoId', 'ja')).rejects.toThrow(
-      'No transcript found',
-    )
-  })
-})
+    mockFetchResponses(
+      { ok: true, json: playerJson },
+      { ok: true, json: json3 }
+    );
+
+    const result = await fetchTranscript("testVideoId", "ja");
+
+    expect(result).toEqual([
+      { text: "テスト", start: 0, duration: 1 },
+      { text: "有効", start: 2, duration: 2 },
+    ]);
+  });
+
+  it("falls back to first track when requested language is not found", async () => {
+    const playerJson = {
+      captions: {
+        playerCaptionsTracklistRenderer: {
+          captionTracks: [
+            { baseUrl: "https://example.com/timedtext", languageCode: "en" },
+          ],
+        },
+      },
+    };
+    const json3 = {
+      events: [
+        {
+          tStartMs: 0,
+          dDurationMs: 2000,
+          segs: [{ utf8: "Hello" }],
+        },
+      ],
+    };
+
+    mockFetchResponses(
+      { ok: true, json: playerJson },
+      { ok: true, json: json3 }
+    );
+
+    const result = await fetchTranscript("testVideoId", "ja");
+
+    expect(result).toEqual([{ text: "Hello", start: 0, duration: 2 }]);
+  });
+
+  it("handles missing captions field gracefully", async () => {
+    const playerJson = { videoDetails: { videoId: "test" } };
+
+    mockFetchResponses({ ok: true, json: playerJson });
+
+    await expect(fetchTranscript("testVideoId", "ja")).rejects.toThrow(
+      "자막 트랙을 찾을 수 없습니다"
+    );
+  });
+});
