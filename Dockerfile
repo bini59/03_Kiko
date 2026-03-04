@@ -1,6 +1,6 @@
 # Stage 1: Base
 FROM node:20-slim AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.7.1 --activate
 
 # Stage 2: Dependencies
 FROM base AS deps

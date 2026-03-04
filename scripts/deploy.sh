@@ -114,8 +114,8 @@ main() {
         docker rm -f "$old_container" 2>/dev/null || true
     fi
 
-    # Clean up old images
-    docker image prune -f --filter "label=maintainer" 2>/dev/null || true
+    # Clean up dangling images
+    docker image prune -f 2>/dev/null || true
 
     log "Deployment complete! Active: $new_color"
 }

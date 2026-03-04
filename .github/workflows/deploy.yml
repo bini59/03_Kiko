@@ -13,10 +13,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create .env.production
-        run: |
-          cat > .env.production <<EOF
-          YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}
-          EOF
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: echo "YOUTUBE_API_KEY=${YOUTUBE_API_KEY}" > .env.production
 
       - name: Deploy (blue-green)
         run: bash scripts/deploy.sh
