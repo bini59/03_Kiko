@@ -2,7 +2,8 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-UPSTREAM_CONF="$PROJECT_DIR/nginx/upstream.conf"
+DEPLOY_ROOT="${KIKO_DEPLOY_ROOT:-/home/ubuntu/03_Kiko}"
+UPSTREAM_CONF="$DEPLOY_ROOT/nginx/upstream.conf"
 IMAGE_NAME="kiko-app"
 NETWORK_NAME="kiko-network"
 
