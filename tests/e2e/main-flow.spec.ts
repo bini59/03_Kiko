@@ -77,6 +77,30 @@ test.describe('Main Flow', () => {
     await expect(page.getByPlaceholder(/한국어 번역/i)).toBeVisible()
   })
 
+  test('shows video player and transcript error when transcript fails', async ({ page }) => {
+    await page.goto('/')
+
+    await page.route('/api/youtube*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          info: mockYoutubeResponse.info,
+          transcript: [],
+          transcriptError: '자막 추출 실패: YouTube IP blocked',
+        }),
+      })
+    })
+
+    await page.getByPlaceholder(/YouTube URL/i).fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    await page.getByRole('button', { name: /학습 시작/i }).click()
+
+    // Video player section should still appear
+    await expect(page.getByRole('heading', { name: '스크립트' })).toBeVisible({ timeout: 10000 })
+    // Transcript error notice should be shown
+    await expect(page.getByText('자막을 불러올 수 없습니다')).toBeVisible()
+  })
+
   test('shows error when verifying without API key', async ({ page }) => {
     await page.goto('/')
 

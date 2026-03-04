@@ -61,4 +61,25 @@ describe('GET /api/youtube', () => {
 
     expect(response.status).toBe(500)
   })
+
+  it('returns 200 with empty transcript and transcriptError when only transcript fails', async () => {
+    mockFetchVideoInfo.mockResolvedValueOnce({
+      id: 'testId',
+      title: 'Test',
+      channelTitle: 'Channel',
+      thumbnail: 'https://img.youtube.com/thumb.jpg',
+      duration: 'PT5M',
+    })
+
+    mockFetchTranscript.mockRejectedValueOnce(new Error('자막 추출 실패'))
+
+    const request = new NextRequest('http://localhost:3000/api/youtube?videoId=testId')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.info.id).toBe('testId')
+    expect(data.transcript).toEqual([])
+    expect(data.transcriptError).toBe('자막 추출 실패')
+  })
 })

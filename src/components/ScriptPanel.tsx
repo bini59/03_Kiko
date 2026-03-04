@@ -8,12 +8,14 @@ interface ScriptPanelProps {
   transcript: TranscriptEntry[];
   activeIndex: number;
   onClickEntry: (time: number) => void;
+  transcriptError?: string;
 }
 
 export function ScriptPanel({
   transcript,
   activeIndex,
   onClickEntry,
+  transcriptError,
 }: ScriptPanelProps) {
   const activeRef = useRef<HTMLButtonElement | null>(null);
 
@@ -35,6 +37,11 @@ export function ScriptPanel({
       <h3 className="font-heading text-lg text-foreground mb-3 sticky top-0 bg-white py-2">
         스크립트
       </h3>
+      {transcriptError && (
+        <p className="font-body text-sm text-accent mb-3" role="alert">
+          자막을 불러올 수 없습니다
+        </p>
+      )}
       <div className="space-y-1">
         {transcript.map((entry, index) => {
           const isActive = index === activeIndex;

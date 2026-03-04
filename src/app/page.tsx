@@ -19,6 +19,7 @@ export default function Home() {
   const [selectedText, setSelectedText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [transcriptError, setTranscriptError] = useState("");
   const [apiKey, setApiKey] = useState("");
 
   const { currentTime, playerRef, seekTo } = useYouTubePlayer(videoId);
@@ -41,6 +42,7 @@ export default function Home() {
   const handleSubmit = async (id: string) => {
     setLoading(true);
     setError("");
+    setTranscriptError("");
     setVideoInfo(null);
     setTranscript([]);
     setSelectedText("");
@@ -55,7 +57,10 @@ export default function Home() {
       const data = await response.json();
       setVideoId(id);
       setVideoInfo(data.info);
-      setTranscript(data.transcript);
+      setTranscript(data.transcript ?? []);
+      if (data.transcriptError) {
+        setTranscriptError(data.transcriptError);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "알 수 없는 오류");
     } finally {
@@ -113,6 +118,7 @@ export default function Home() {
               transcript={transcript}
               activeIndex={activeIndex}
               onClickEntry={handleClickEntry}
+              transcriptError={transcriptError}
             />
           </section>
         )}
