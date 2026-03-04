@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.github
+coverage
+test-results
+playwright-report
+*.md
+.env*.local
+.env.production
+nginx
+scripts
+.claude
+.idea
+.DS_Store
